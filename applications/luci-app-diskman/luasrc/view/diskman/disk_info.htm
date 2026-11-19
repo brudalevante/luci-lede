@@ -1,0 +1,111 @@
+<style>
+  .diskman-table { table-layout: auto; width: 100%; }
+  .diskman-table > tbody > tr > th,
+  .diskman-table > tbody > tr > td {
+    padding-left: 6px;
+    padding-right: 6px;
+    white-space: nowrap;
+    overflow-wrap: normal;
+    width: auto;
+    flex: 0 0 auto;
+  }
+  .diskman-table > tbody > tr > [data-name="path"],
+  .diskman-table > tbody > tr > [data-name="model"] {
+    width: auto;
+    flex: 1 1 0;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .diskman-table > tbody > tr > .cbi-section-actions {
+    width: 6em;
+    min-width: 6em;
+    flex: 0 0 6em;
+  }
+</style>
+<script type="text/javascript">
+  window.onload = function () {
+    //disk partition info
+    let p_colors = ["#c0c0ff", "#fbbd00", "#e97c30", "#a0e0a0", "#e0c0ff"]
+    function renderPartitions(item, disk_info) {
+      if (!disk_info.partitions || !disk_info.partitions.length) return
+      let isTable = item.nodeName == "TR"
+      if (isTable) item.closest("table").classList.add("diskman-table")
+      let row = document.createElement(isTable ? "tr" : "div")
+      let cell = document.createElement(isTable ? "td" : "div")
+      if (isTable) cell.colSpan = item.children.length
+      else {
+        row.className = "tr cbi-section-table-row cbi-rowstyle-1"
+        cell.className = "td"
+      }
+      cell.style.cssText = "padding:0; border:0;"
+      let container = document.createElement("div")
+      container.style.cssText = "position:relative; height:1.8em; overflow:hidden;"
+      let bar = document.createElement("div")
+      // Keep partition labels out of the table's intrinsic width calculation.
+      bar.style.cssText = "position:absolute; inset:0; display:flex;"
+      disk_info.partitions.forEach((part, index) => {
+        let segment = document.createElement("div")
+        let label = (part.name != '-' && part.name || '') + ' ' + (part.fs != 'Free Space' && part.fs || '') + ' ' + part.size_formated + ' ' + (part.useage != '-' && part.useage || '')
+        let share = disk_info.size > 0 ? part.size / disk_info.size * 100 : 0
+        // Flex normalizes the weights even when there are many small partitions.
+        segment.style.cssText = "min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:center; color:#525F7F;"
+        segment.style.flex = Math.max(share || 0, 8) + " 1 0%"
+        segment.style.backgroundColor = p_colors[index % p_colors.length]
+        segment.title = label
+        segment.textContent = label
+        bar.appendChild(segment)
+      })
+      container.appendChild(bar)
+      cell.appendChild(container)
+      row.appendChild(cell)
+      item.parentNode.insertBefore(row, item.nextSibling)
+    }
+    let lines = document.querySelectorAll('[id^=cbi-disk-]')
+    lines.forEach((item) => {
+      let dev = item.id.match(/cbi-disk-(.*)/)[1]
+      if (dev == "table") { return }
+      XHR.get('<%=luci.dispatcher.build_url("admin/system/diskman/get_disk_info")%>/' + dev, null, (x, disk_info) => {
+        // handle disk info
+        item.childNodes.forEach((cell) => {
+          if (cell && cell.attributes) {
+            if (cell.getAttribute("data-name") == "sn" || cell.childNodes[1] && cell.childNodes[1].id.match(/sn/)) {
+              cell.innerText = disk_info.sn || "-"
+            } else if (cell.getAttribute("data-name") == "temp" || cell.childNodes[1] && cell.childNodes[1].id.match(/temp/)) {
+              cell.innerText = disk_info.temp || "-"
+            } else if (cell.getAttribute("data-name") == "p_table" || cell.childNodes[1] && cell.childNodes[1].id.match(/p_table/)) {
+              cell.innerText = disk_info.p_table || "-"
+            } else if (cell.getAttribute("data-name") == "sata_ver" || cell.childNodes[1] && cell.childNodes[1].id.match(/sata_ver/)) {
+              cell.innerText = disk_info.sata_ver || "-"
+            } else if (cell.getAttribute("data-name") == "health_status" || cell.childNodes[1] && cell.childNodes[1].id.match(/health_status/)) {
+              cell.innerText = (disk_info.health || "-") + " / " + (disk_info.status || "-")
+            } else if (cell.getAttribute("data-name") == "health" || cell.childNodes[1] && cell.childNodes[1].id.match(/health/)) {
+              cell.innerText = disk_info.health || "-"
+            } else if (cell.getAttribute("data-name") == "status" || cell.childNodes[1] && cell.childNodes[1].id.match(/status/)) {
+              cell.innerText = disk_info.status || "-"
+            }
+          }
+        })
+        renderPartitions(item, disk_info)
+      })
+    })
+    //raid table
+    lines = document.querySelectorAll('[id^=cbi-_raid-]')
+    lines.forEach((item) => {
+      let dev = item.id.match(/cbi-_raid-(.*)/)[1]
+      if (dev == "table") { return }
+      console.log(dev)
+      XHR.get('<%=luci.dispatcher.build_url("admin/system/diskman/get_disk_info")%>/' + dev, null, (x, disk_info) => {
+        // handle raid info
+        item.childNodes.forEach((cell) => {
+          if (cell && cell.attributes) {
+            if (cell.getAttribute("data-name") == "p_table" || cell.childNodes[1] && cell.childNodes[1].id.match(/p_table/)) {
+                  cell.innerText = disk_info.p_table || "-"
+                }
+          }
+        })
+        renderPartitions(item, disk_info)
+      })
+    })
+  }
+</script>
